@@ -111,6 +111,7 @@ export default function Home() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [output, setOutput] = useState("");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     try {
@@ -124,6 +125,28 @@ export default function Home() {
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch {}
+  }
+
+  async function copyNotes() {
+    try {
+      await navigator.clipboard.writeText(output);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError("Could not copy. Try the Download button instead.");
+    }
+  }
+
+  function downloadNotes() {
+    const blob = new Blob([output], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "study-notes.txt";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   }
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -187,12 +210,26 @@ export default function Home() {
       {error && <p className="mt-4 text-red-600">{error}</p>}
 
       {sections.length > 0 && (
-        <button
-          onClick={clearNotes}
-          className="mt-4 text-sm text-gray-500 underline"
-        >
-          Clear notes
-        </button>
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+          <button
+            onClick={copyNotes}
+            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50"
+          >
+            {copied ? "Copied!" : "Copy notes"}
+          </button>
+          <button
+            onClick={downloadNotes}
+            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50"
+          >
+            Download
+          </button>
+          <button
+            onClick={clearNotes}
+            className="text-sm text-gray-500 underline"
+          >
+            Clear notes
+          </button>
+        </div>
       )}
 
       {sections.length > 0 && (
