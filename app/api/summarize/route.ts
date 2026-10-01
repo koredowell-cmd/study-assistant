@@ -1,7 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
+import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 export const maxDuration = 60;
+
+const DAILY_LIMIT = 5;
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -25,13 +28,52 @@ Part B: 10 short-answer questions, each with a model answer of 2 to 4 sentences.
 Part C: 5 essay questions, each with a list of the points a strong answer would include.
 
 Use simple language. Base everything only on the provided material, and do not invent content that is not in it.`;
-export async function POST(request: Request) {
-  const { text } = await request.json();
 
+export async function POST(request: Request) {
+  const token = request.headers.get("authorization")?.replace("Bearer ", "");
+  if (!token) {
+    return NextResponse.json(
+      { error: "Please log in to continue." },
+      { status: 401 }
+    );
+  }
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { global: { headers: { Authorization: `Bearer ${token}` } } }
+  );
+
+  const { data: userData, error: userError } = await supabase.auth.getUser(token);
+  if (userError || !userData.user) {
+    return NextResponse.json(
+      { error: "Your session expired. Please log in again." },
+      { status: 401 }
+    );
+  }
+
+  const { text } = await request.json();
   if (typeof text !== "string" || text.trim().length < 50) {
     return NextResponse.json(
       { error: "Not enough text to work with." },
       { status: 400 }
+    );
+  }
+
+  const { data: count, error: usageError } = await supabase.rpc("use_upload", {
+    daily_limit: DAILY_LIMIT,
+  });
+  if (usageError) {
+    console.error("Usage error:", usageError);
+    return NextResponse.json(
+      { error: "Could not check your usage. Please try again." },
+      { status: 500 }
+    );
+  }
+  if (count === -1) {
+    return NextResponse.json(
+      { error: `You have used all ${DAILY_LIMIT} free uploads for today. Come back tomorrow!` },
+      { status: 429 }
     );
   }
 

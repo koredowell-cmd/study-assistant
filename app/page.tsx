@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
+import { supabase } from "../lib/supabase";
 
 const STORAGE_KEY = "study-assistant-output";
 
@@ -108,22 +110,63 @@ function renderLine(line: string, title: string, i: number) {
 }
 
 export default function Home() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authMsg, setAuthMsg] = useState("");
+  const [authBusy, setAuthBusy] = useState(false);
+
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [output, setOutput] = useState("");
   const [copied, setCopied] = useState(false);
 
+  const userId = session?.user.id;
+
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) setOutput(saved);
-    } catch {}
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setAuthReady(true);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+    });
+    return () => sub.subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!userId) {
+      setOutput("");
+      return;
+    }
+    try {
+      setOutput(localStorage.getItem(`${STORAGE_KEY}-${userId}`) ?? "");
+    } catch {}
+  }, [userId]);
+
+  async function handleAuth(e: React.FormEvent) {
+    e.preventDefault();
+    setAuthBusy(true);
+    setAuthMsg("");
+    const { error: authError } =
+      mode === "signup"
+        ? await supabase.auth.signUp({ email, password })
+        : await supabase.auth.signInWithPassword({ email, password });
+    if (authError) setAuthMsg(authError.message);
+    setAuthBusy(false);
+  }
+
+  async function logOut() {
+    await supabase.auth.signOut();
+    setError("");
+  }
 
   function clearNotes() {
     setOutput("");
     try {
-      localStorage.removeItem(STORAGE_KEY);
+      if (userId) localStorage.removeItem(`${STORAGE_KEY}-${userId}`);
     } catch {}
   }
 
@@ -151,12 +194,17 @@ export default function Home() {
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
 
     setError("");
     setOutput("");
 
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("Please log in to continue.");
+
       if (file.size > 50 * 1024 * 1024) {
         throw new Error("File is too large. Please use a PDF under 50MB.");
       }
@@ -176,7 +224,10 @@ export default function Home() {
       setStatus("Creating your study notes and questions...");
       const res = await fetch("/api/summarize", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ text: text.slice(0, 60000) }),
       });
       const data = await res.json();
@@ -184,7 +235,7 @@ export default function Home() {
 
       setOutput(data.output);
       try {
-        localStorage.setItem(STORAGE_KEY, data.output);
+        localStorage.setItem(`${STORAGE_KEY}-${sessionData.session?.user.id}`, data.output);
       } catch {}
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -194,9 +245,76 @@ export default function Home() {
 
   const sections = output ? parseSections(output) : [];
 
+  if (!authReady) {
+    return (
+      <main className="flex min-h-screen items-center justify-center">
+        <p className="text-gray-600">Loading...</p>
+      </main>
+    );
+  }
+
+  if (!session) {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-sm flex-col items-center justify-center p-6 text-center">
+        <h1 className="text-3xl font-bold">Study Assistant</h1>
+        <p className="mt-3 text-gray-600">
+          Log in to turn your lecture slides into study notes and practice questions.
+        </p>
+
+        <form onSubmit={handleAuth} className="mt-8 w-full space-y-3">
+          <input
+            type="email"
+            required
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
+          />
+          <input
+            type="password"
+            required
+            minLength={6}
+            placeholder="Password (at least 6 characters)"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
+          />
+          <button
+            type="submit"
+            disabled={authBusy}
+            className="w-full rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+          >
+            {authBusy ? "Please wait..." : mode === "signup" ? "Create account" : "Log in"}
+          </button>
+        </form>
+
+        {authMsg && <p className="mt-4 text-sm text-red-600">{authMsg}</p>}
+
+        <button
+          onClick={() => {
+            setMode(mode === "login" ? "signup" : "login");
+            setAuthMsg("");
+          }}
+          className="mt-6 text-sm text-gray-600 underline"
+        >
+          {mode === "login"
+            ? "New here? Create an account"
+            : "Already have an account? Log in"}
+        </button>
+      </main>
+    );
+  }
+
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col items-center p-6 pt-16 text-center">
-      <h1 className="text-3xl font-bold">Study Assistant</h1>
+    <main className="mx-auto flex min-h-screen max-w-2xl flex-col items-center p-6 pt-10 text-center">
+      <div className="flex w-full items-center justify-between text-sm text-gray-500">
+        <span className="truncate">{session.user.email}</span>
+        <button onClick={logOut} className="underline">
+          Log out
+        </button>
+      </div>
+
+      <h1 className="mt-8 text-3xl font-bold">Study Assistant</h1>
       <p className="mt-3 text-gray-600">
         Upload your lecture slides and get a summary and practice questions.
       </p>
@@ -223,10 +341,7 @@ export default function Home() {
           >
             Download
           </button>
-          <button
-            onClick={clearNotes}
-            className="text-sm text-gray-500 underline"
-          >
+          <button onClick={clearNotes} className="text-sm text-gray-500 underline">
             Clear notes
           </button>
         </div>
