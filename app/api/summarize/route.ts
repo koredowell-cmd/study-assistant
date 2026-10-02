@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 export const maxDuration = 60;
 
-const DAILY_LIMIT = 5;
+const DAILY_LIMIT = 2;
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
   }
   if (count === -1) {
     return NextResponse.json(
-      { error: `You have used all ${DAILY_LIMIT} free uploads for today. Come back tomorrow!` },
+      { error: `You have used all ${DAILY_LIMIT} free uploads for today. Come back tomorrow, or buy a pass below for more uploads.` },
       { status: 429 }
     );
   }

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { supabase } from "../lib/supabase";
+import { supabase } from "@/lib/supabase";
+import { PLANS, cedis, type PlanId } from "@/lib/plans";
 
 const STORAGE_KEY = "study-assistant-output";
 
@@ -25,6 +26,13 @@ const ALIASES: Record<string, string> = {
 };
 
 type Section = { title: string; lines: string[] };
+type Pass = {
+  id: string;
+  plan: string;
+  uploads_total: number;
+  uploads_used: number;
+  expires_at: string;
+};
 
 function matchSection(line: string): string | null {
   const clean = line
@@ -120,10 +128,59 @@ export default function Home() {
 
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [output, setOutput] = useState("");
   const [copied, setCopied] = useState(false);
 
+  const [passes, setPasses] = useState<Pass[]>([]);
+  const [payBusy, setPayBusy] = useState("");
+  const [showPlans, setShowPlans] = useState(false);
+
   const userId = session?.user.id;
+
+  const loadPasses = useCallback(async () => {
+    const { data } = await supabase
+      .from("passes")
+      .select("id, plan, uploads_total, uploads_used, expires_at")
+      .gt("expires_at", new Date().toISOString())
+      .order("expires_at", { ascending: true });
+    setPasses((data ?? []).filter((p) => p.uploads_used < p.uploads_total));
+  }, []);
+
+  const verifyPayment = useCallback(
+    async (reference: string) => {
+      setNotice("Confirming your payment...");
+      try {
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) throw new Error("Please log in to continue.");
+
+        const res = await fetch("/api/verify", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ reference }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? "Could not confirm the payment.");
+
+        setNotice("Payment received. Your pass is active!");
+        setShowPlans(false);
+        setError("");
+        await loadPasses();
+      } catch (err) {
+        setNotice("");
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Could not confirm the payment. If you were charged, contact support."
+        );
+      }
+    },
+    [loadPasses]
+  );
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -139,12 +196,23 @@ export default function Home() {
   useEffect(() => {
     if (!userId) {
       setOutput("");
+      setPasses([]);
+      setShowPlans(false);
       return;
     }
     try {
       setOutput(localStorage.getItem(`${STORAGE_KEY}-${userId}`) ?? "");
     } catch {}
-  }, [userId]);
+
+    loadPasses();
+
+    const params = new URLSearchParams(window.location.search);
+    const reference = params.get("reference") || params.get("trxref");
+    if (reference) {
+      window.history.replaceState({}, "", window.location.pathname);
+      verifyPayment(reference);
+    }
+  }, [userId, loadPasses, verifyPayment]);
 
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
@@ -161,6 +229,7 @@ export default function Home() {
   async function logOut() {
     await supabase.auth.signOut();
     setError("");
+    setNotice("");
   }
 
   function clearNotes() {
@@ -192,12 +261,40 @@ export default function Home() {
     URL.revokeObjectURL(url);
   }
 
+  async function buyPass(plan: PlanId) {
+    setError("");
+    setNotice("");
+    setPayBusy(plan);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error("Please log in to continue.");
+
+      const res = await fetch("/api/pay", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ plan }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Could not start the payment.");
+
+      window.location.href = json.url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not start the payment.");
+      setPayBusy("");
+    }
+  }
+
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
 
     setError("");
+    setNotice("");
     setOutput("");
 
     try {
@@ -231,12 +328,14 @@ export default function Home() {
         body: JSON.stringify({ text: text.slice(0, 60000) }),
       });
       const data = await res.json();
+      if (res.status === 429) setShowPlans(true);
       if (!res.ok) throw new Error(data.error ?? "Something went wrong.");
 
       setOutput(data.output);
       try {
         localStorage.setItem(`${STORAGE_KEY}-${sessionData.session?.user.id}`, data.output);
       } catch {}
+      loadPasses();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     }
@@ -244,6 +343,10 @@ export default function Home() {
   }
 
   const sections = output ? parseSections(output) : [];
+  const uploadsLeft = passes.reduce((n, p) => n + (p.uploads_total - p.uploads_used), 0);
+  const lastExpiry = passes.length
+    ? new Date(Math.max(...passes.map((p) => new Date(p.expires_at).getTime())))
+    : null;
 
   if (!authReady) {
     return (
@@ -324,11 +427,64 @@ export default function Home() {
         <input type="file" accept="application/pdf" className="hidden" onChange={handleFile} />
       </label>
 
+      {passes.length > 0 && lastExpiry ? (
+        <p className="mt-4 rounded-lg bg-green-50 px-4 py-2 text-sm text-green-900">
+          Pass active: {uploadsLeft} uploads left, valid until{" "}
+          {lastExpiry.toLocaleDateString()}
+        </p>
+      ) : (
+        <p className="mt-4 text-sm text-gray-500">Free plan: 2 uploads per day.</p>
+      )}
+
       {status && <p className="mt-4 text-gray-600">{status}</p>}
+      {notice && <p className="mt-4 text-green-700">{notice}</p>}
       {error && <p className="mt-4 text-red-600">{error}</p>}
 
+      {!showPlans && (
+        <button
+          onClick={() => setShowPlans(true)}
+          className="mt-4 text-sm text-blue-700 underline"
+        >
+          Need more uploads? See plans
+        </button>
+      )}
+
+      {showPlans && (
+        <div className="mt-6 w-full">
+          <div className="grid w-full grid-cols-1 gap-3 text-left sm:grid-cols-2">
+            {(Object.keys(PLANS) as PlanId[]).map((id) => {
+              const p = PLANS[id];
+              return (
+                <div key={id} className="rounded-lg border border-gray-200 bg-white p-4">
+                  <p className="font-semibold text-gray-900">{p.name}</p>
+                  <p className="mt-1 text-2xl font-bold text-gray-900">
+                    GH₵{cedis(p.pesewas)}
+                  </p>
+                  <p className="mt-1 text-sm text-gray-600">
+                    {p.uploads} uploads, valid for {p.days} days (whichever ends first)
+                  </p>
+                  <button
+                    onClick={() => buyPass(id)}
+                    disabled={payBusy !== ""}
+                    className="mt-3 w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                  >
+                    {payBusy === id ? "Opening payment..." : "Buy with Mobile Money or card"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <button
+            onClick={() => setShowPlans(false)}
+            className="mt-3 text-sm text-gray-500 underline"
+          >
+            Hide plans
+          </button>
+        </div>
+      )}
+
       {sections.length > 0 && (
-        <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <button
             onClick={copyNotes}
             className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50"
