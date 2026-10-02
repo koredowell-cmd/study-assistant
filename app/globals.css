@@ -1,10 +1,154 @@
 @import "tailwindcss";
 
+@theme {
+  --color-ink: #101828;
+  --color-night: #0a1626;
+  --color-muted: #5a6678;
+  --color-line: #dde4ec;
+  --color-leaf: #0f6b4f;
+  --color-leaf-dark: #0a5039;
+  --color-leaf-tint: #e4f1eb;
+  --color-gold: #f5b700;
+  --color-gold-tint: #fff4cc;
+}
+
 :root {
   color-scheme: light;
 }
 
 body {
-  background: #ffffff;
-  color: #171717;
+  background: #0a1626;
+  color: #ffffff;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid #f5b700;
+  outline-offset: 2px;
+}
+
+/* Notebook paper for the upload card */
+.ruled {
+  background-color: #ffffff;
+  background-image:
+    linear-gradient(to right, transparent 3rem, #f2a9a0 3rem, #f2a9a0 calc(3rem + 1px), transparent calc(3rem + 1px)),
+    repeating-linear-gradient(to bottom, transparent 0, transparent 1.75rem, #e3ecf5 1.75rem, #e3ecf5 calc(1.75rem + 1px));
+}
+
+/* Animated background */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  background: linear-gradient(160deg, #0a1626 0%, #0b2a2e 55%, #0a1626 100%);
+  pointer-events: none;
+}
+
+.blob {
+  position: absolute;
+  width: 70vmax;
+  height: 70vmax;
+  border-radius: 50%;
+  will-change: transform;
+}
+
+.blob-a {
+  top: -25vmax;
+  left: -20vmax;
+  background: radial-gradient(circle, rgba(25, 195, 125, 0.38) 0%, rgba(25, 195, 125, 0) 65%);
+  animation: drift-a 24s ease-in-out infinite;
+}
+
+.blob-b {
+  bottom: -30vmax;
+  right: -20vmax;
+  background: radial-gradient(circle, rgba(245, 183, 0, 0.24) 0%, rgba(245, 183, 0, 0) 65%);
+  animation: drift-b 30s ease-in-out infinite;
+}
+
+.blob-c {
+  top: 20vh;
+  right: -30vmax;
+  background: radial-gradient(circle, rgba(34, 170, 200, 0.28) 0%, rgba(34, 170, 200, 0) 65%);
+  animation: drift-c 36s ease-in-out infinite;
+}
+
+.dots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 26px 26px;
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.15));
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.15));
+}
+
+.sym {
+  position: absolute;
+  top: 100%;
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
+  animation-name: rise;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes drift-a {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(18vw, 12vh, 0) scale(1.15); }
+}
+
+@keyframes drift-b {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.05); }
+  50% { transform: translate3d(-20vw, -14vh, 0) scale(0.92); }
+}
+
+@keyframes drift-c {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(0.95); }
+  50% { transform: translate3d(-12vw, 18vh, 0) scale(1.12); }
+}
+
+@keyframes rise {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0; }
+  10% { opacity: 0.55; }
+  90% { opacity: 0.55; }
+  100% { transform: translate3d(var(--dx, 30px), -125vh, 0) rotate(var(--rot, 20deg)); opacity: 0; }
+}
+
+/* Gold glow around the main button */
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 183, 0, 0); }
+  50% { box-shadow: 0 0 0 7px rgba(245, 183, 0, 0.35); }
+}
+
+.glow {
+  animation: glow 2.8s ease-in-out infinite;
+}
+
+/* One fade-in when the page loads */
+@keyframes enter {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+.enter {
+  animation: enter 0.6s ease-out both;
+}
+
+.enter-2 {
+  animation-delay: 0.14s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blob,
+  .glow,
+  .enter {
+    animation: none !important;
+  }
+  .sym {
+    display: none;
+  }
 }

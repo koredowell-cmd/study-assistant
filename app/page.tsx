@@ -25,6 +25,15 @@ const ALIASES: Record<string, string> = {
   "PRACTICE QUESTIONS AND ANSWERS": "PRACTICE QUESTIONS",
 };
 
+const TITLES: Record<string, string> = {
+  OVERVIEW: "Overview",
+  "DETAILED STUDY NOTES": "Detailed study notes",
+  "KEY TERMS": "Key terms",
+  COMPARISONS: "Comparisons",
+  "PRACTICE QUESTIONS": "Practice questions",
+  NOTES: "Notes",
+};
+
 type Section = { title: string; lines: string[] };
 type Pass = {
   id: string;
@@ -33,6 +42,10 @@ type Pass = {
   uploads_used: number;
   expires_at: string;
 };
+
+function toTitle(text: string) {
+  return text.toLowerCase().replace(/(^|\s)[a-z]/g, (c) => c.toUpperCase());
+}
 
 function matchSection(line: string): string | null {
   const clean = line
@@ -74,18 +87,21 @@ function renderLine(line: string, title: string, i: number) {
   const t = line.trim().replace(/^[-•]\s*/, "");
   if (t === "") return <div key={i} className="h-2" />;
 
-  if (isHeading(t)) {
+  if (/^part [abc]/i.test(t)) {
     return (
-      <h3 key={i} className="mt-5 text-base font-bold text-gray-900">
+      <h4
+        key={i}
+        className="mt-7 border-b border-line pb-1 font-serif text-base font-semibold text-leaf-dark"
+      >
         {t}
-      </h3>
+      </h4>
     );
   }
 
-  if (/^part [abc]/i.test(t)) {
+  if (isHeading(t)) {
     return (
-      <h3 key={i} className="mt-5 text-base font-bold text-blue-700">
-        {t}
+      <h3 key={i} className="mt-6 font-serif text-lg font-semibold text-ink">
+        {toTitle(t)}
       </h3>
     );
   }
@@ -93,7 +109,10 @@ function renderLine(line: string, title: string, i: number) {
   const answer = t.match(/^answer\s*:\s*(.*)$/i);
   if (answer) {
     return (
-      <p key={i} className="mt-1 rounded bg-green-50 px-2 py-1 text-green-900">
+      <p
+        key={i}
+        className="mt-1.5 rounded-r-md border-l-2 border-leaf bg-leaf-tint px-3 py-1.5 text-leaf-dark"
+      >
         <span className="font-semibold">Answer:</span> {answer[1]}
       </p>
     );
@@ -103,17 +122,46 @@ function renderLine(line: string, title: string, i: number) {
     const term = t.match(/^([^:]{2,60}):\s*(.+)$/);
     if (term) {
       return (
-        <p key={i} className="mt-2">
-          <span className="font-semibold text-gray-900">{term[1]}:</span> {term[2]}
+        <p key={i} className="mt-3">
+          <span className="font-semibold text-ink">{term[1]}:</span> {term[2]}
         </p>
       );
     }
   }
 
   return (
-    <p key={i} className="mt-1">
+    <p key={i} className="mt-1.5">
       {t}
     </p>
+  );
+}
+
+const inputClass =
+  "w-full rounded-lg border border-line bg-white px-4 py-3 text-base text-ink placeholder:text-muted/60 focus:border-leaf focus:outline-none focus:ring-2 focus:ring-leaf/30";
+
+function Brand() {
+  return (
+    <div className="flex items-center gap-2.5">
+      <span className="grid h-8 w-8 place-items-center rounded-lg bg-gold font-serif text-lg font-black text-night">
+        S
+      </span>
+      <span className="font-serif text-lg font-bold text-white">Study Assistant</span>
+    </div>
+  );
+}
+
+function Check() {
+  return (
+    <svg
+      className="mt-1 h-4 w-4 shrink-0 text-gold"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      aria-hidden="true"
+    >
+      <path d="M4 10.5l4 4 8-9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
@@ -137,6 +185,7 @@ export default function Home() {
   const [showPlans, setShowPlans] = useState(false);
 
   const userId = session?.user.id;
+  const busy = status !== "";
 
   const loadPasses = useCallback(async () => {
     const { data } = await supabase
@@ -166,7 +215,7 @@ export default function Home() {
         const json = await res.json();
         if (!res.ok) throw new Error(json.error ?? "Could not confirm the payment.");
 
-        setNotice("Payment received. Your pass is active!");
+        setNotice("Payment received. Your pass is active.");
         setShowPlans(false);
         setError("");
         await loadPasses();
@@ -318,7 +367,7 @@ export default function Home() {
         );
       }
 
-      setStatus("Creating your study notes and questions...");
+      setStatus("Writing your study notes and questions. This can take up to a minute...");
       const res = await fetch("/api/summarize", {
         method: "POST",
         headers: {
@@ -351,176 +400,348 @@ export default function Home() {
   if (!authReady) {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <p className="text-gray-600">Loading...</p>
+        <p className="text-white/70">Loading...</p>
       </main>
     );
   }
 
   if (!session) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-sm flex-col items-center justify-center p-6 text-center">
-        <h1 className="text-3xl font-bold">Study Assistant</h1>
-        <p className="mt-3 text-gray-600">
-          Log in to turn your lecture slides into study notes and practice questions.
-        </p>
+      <main className="mx-auto grid min-h-screen w-full max-w-6xl items-center gap-12 px-5 py-12 sm:px-8 lg:grid-cols-2 lg:gap-16">
+        <div className="enter">
+          <Brand />
+          <h1 className="mt-8 font-serif text-4xl font-bold leading-[1.1] text-white sm:text-6xl">
+            Turn your slides into exam prep
+          </h1>
+          <p className="mt-4 max-w-lg text-lg leading-8 text-white/75">
+            Upload a lecture PDF and get study notes, key terms, and practice
+            questions with answers.
+          </p>
 
-        <form onSubmit={handleAuth} className="mt-8 w-full space-y-3">
-          <input
-            type="email"
-            required
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
-          />
-          <input
-            type="password"
-            required
-            minLength={6}
-            placeholder="Password (at least 6 characters)"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
-          />
-          <button
-            type="submit"
-            disabled={authBusy}
-            className="w-full rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+          <ul className="mt-6 space-y-2.5 text-white/90">
+            <li className="flex gap-3">
+              <Check />
+              Notes on every topic in your slides
+            </li>
+            <li className="flex gap-3">
+              <Check />
+              Practice questions with the answers included
+            </li>
+            <li className="flex gap-3">
+              <Check />
+              Pay with Mobile Money, only when you need more
+            </li>
+          </ul>
+
+          <ul className="mt-6 flex flex-wrap gap-2 text-sm">
+            <li className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-white/90">
+              Free: 2 uploads a day
+            </li>
+            <li className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-white/90">
+              {PLANS.week.name} GH₵{cedis(PLANS.week.pesewas)}
+            </li>
+            <li className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-white/90">
+              {PLANS.month.name} GH₵{cedis(PLANS.month.pesewas)}
+            </li>
+          </ul>
+        </div>
+
+        <div className="enter enter-2 w-full max-w-md lg:justify-self-end">
+          <form
+            onSubmit={handleAuth}
+            className="space-y-4 rounded-2xl bg-white p-6 text-ink shadow-2xl"
           >
-            {authBusy ? "Please wait..." : mode === "signup" ? "Create account" : "Log in"}
-          </button>
-        </form>
+            <h2 className="font-serif text-2xl font-semibold">
+              {mode === "signup" ? "Create your account" : "Log in"}
+            </h2>
 
-        {authMsg && <p className="mt-4 text-sm text-red-600">{authMsg}</p>}
+            <div>
+              <label htmlFor="email" className="mb-1 block text-sm font-medium">
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                required
+                autoComplete="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={inputClass}
+              />
+            </div>
 
-        <button
-          onClick={() => {
-            setMode(mode === "login" ? "signup" : "login");
-            setAuthMsg("");
-          }}
-          className="mt-6 text-sm text-gray-600 underline"
-        >
-          {mode === "login"
-            ? "New here? Create an account"
-            : "Already have an account? Log in"}
-        </button>
+            <div>
+              <label htmlFor="password" className="mb-1 block text-sm font-medium">
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                required
+                minLength={6}
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                placeholder="At least 6 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+
+            {authMsg && (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                {authMsg}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={authBusy}
+              className="w-full rounded-lg bg-leaf px-4 py-3 font-semibold text-white hover:bg-leaf-dark disabled:opacity-60"
+            >
+              {authBusy ? "Please wait..." : mode === "signup" ? "Create account" : "Log in"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMode(mode === "login" ? "signup" : "login");
+                setAuthMsg("");
+              }}
+              className="text-sm font-medium text-leaf underline underline-offset-2"
+            >
+              {mode === "login"
+                ? "New here? Create an account"
+                : "Already have an account? Log in"}
+            </button>
+          </form>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col items-center p-6 pt-10 text-center">
-      <div className="flex w-full items-center justify-between text-sm text-gray-500">
-        <span className="truncate">{session.user.email}</span>
-        <button onClick={logOut} className="underline">
-          Log out
-        </button>
-      </div>
+    <main className="mx-auto w-full max-w-6xl px-5 pb-16 pt-6 sm:px-8">
+      <header className="flex items-center justify-between gap-4">
+        <Brand />
+        <div className="flex min-w-0 items-center gap-2 text-sm text-white/70">
+          <span className="truncate">{session.user.email}</span>
+          <button
+            onClick={logOut}
+            className="shrink-0 rounded-md px-2 py-1 font-medium text-white hover:bg-white/10"
+          >
+            Log out
+          </button>
+        </div>
+      </header>
 
-      <h1 className="mt-8 text-3xl font-bold">Study Assistant</h1>
-      <p className="mt-3 text-gray-600">
-        Upload your lecture slides and get a summary and practice questions.
-      </p>
+      <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start lg:gap-14">
+        <div>
+          <div className="enter">
+            <h1 className="font-serif text-4xl font-bold leading-[1.1] text-white sm:text-5xl">
+              Turn your slides into exam prep
+            </h1>
+            <p className="mt-3 max-w-md leading-7 text-white/75">
+              Upload a lecture PDF and get study notes, key terms, and practice
+              questions with answers.
+            </p>
+          </div>
 
-      <label className="mt-8 cursor-pointer rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700">
-        Choose a PDF
-        <input type="file" accept="application/pdf" className="hidden" onChange={handleFile} />
-      </label>
+          <label
+            className={`ruled enter enter-2 mt-6 block cursor-pointer rounded-2xl py-7 pl-16 pr-6 text-ink shadow-2xl focus-within:ring-2 focus-within:ring-gold ${
+              busy ? "pointer-events-none opacity-70" : ""
+            }`}
+          >
+            <span className="block font-serif text-xl font-semibold">
+              Choose a lecture PDF
+            </span>
+            <span className="mt-1 block text-sm leading-6 text-muted">
+              Slides or notes saved as a PDF. Scanned pages cannot be read.
+            </span>
+            <span className="glow mt-4 inline-block rounded-lg bg-leaf px-5 py-2.5 text-sm font-semibold text-white">
+              Select PDF
+            </span>
+            <input
+              type="file"
+              accept="application/pdf"
+              className="sr-only"
+              onChange={handleFile}
+              disabled={busy}
+            />
+          </label>
 
-      {passes.length > 0 && lastExpiry ? (
-        <p className="mt-4 rounded-lg bg-green-50 px-4 py-2 text-sm text-green-900">
-          Pass active: {uploadsLeft} uploads left, valid until{" "}
-          {lastExpiry.toLocaleDateString()}
-        </p>
-      ) : (
-        <p className="mt-4 text-sm text-gray-500">Free plan: 2 uploads per day.</p>
-      )}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm">
+            {passes.length > 0 && lastExpiry ? (
+              <span className="rounded-full bg-gold-tint px-3 py-1 font-medium text-ink">
+                Pass active: {uploadsLeft} uploads left, until{" "}
+                {lastExpiry.toLocaleDateString(undefined, { day: "numeric", month: "short" })}
+              </span>
+            ) : (
+              <span className="text-white/70">Free plan: 2 uploads a day</span>
+            )}
+            <button
+              onClick={() => setShowPlans((v) => !v)}
+              className="font-medium text-gold underline underline-offset-2"
+            >
+              {showPlans ? "Hide plans" : "Need more uploads?"}
+            </button>
+          </div>
 
-      {status && <p className="mt-4 text-gray-600">{status}</p>}
-      {notice && <p className="mt-4 text-green-700">{notice}</p>}
-      {error && <p className="mt-4 text-red-600">{error}</p>}
+          {status && (
+            <div
+              role="status"
+              className="mt-4 flex items-center gap-3 rounded-lg border border-white/15 bg-white/10 px-4 py-3 text-sm text-white/85"
+            >
+              <span className="h-4 w-4 shrink-0 rounded-full border-2 border-gold border-t-transparent motion-safe:animate-spin" />
+              {status}
+            </div>
+          )}
+          {notice && (
+            <p className="mt-4 rounded-lg border border-leaf/30 bg-leaf-tint px-4 py-3 text-sm text-leaf-dark">
+              {notice}
+            </p>
+          )}
+          {error && (
+            <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              {error}
+            </p>
+          )}
 
-      {!showPlans && (
-        <button
-          onClick={() => setShowPlans(true)}
-          className="mt-4 text-sm text-blue-700 underline"
-        >
-          Need more uploads? See plans
-        </button>
-      )}
+          {showPlans && (
+            <section className="mt-6">
+              <h2 className="font-serif text-xl font-semibold text-white">
+                Get more uploads
+              </h2>
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                {(Object.keys(PLANS) as PlanId[]).map((id) => {
+                  const p = PLANS[id];
+                  return (
+                    <div
+                      key={id}
+                      className="flex flex-col rounded-2xl bg-white p-5 text-ink shadow-xl"
+                    >
+                      <p className="text-sm font-medium text-muted">{p.name}</p>
+                      <p className="mt-1 font-serif text-3xl font-bold">
+                        GH₵{cedis(p.pesewas)}
+                      </p>
+                      <p className="mt-2 flex-1 text-sm leading-6 text-muted">
+                        {p.uploads} uploads over {p.days} days. It ends when
+                        either one runs out.
+                      </p>
+                      <button
+                        onClick={() => buyPass(id)}
+                        disabled={payBusy !== ""}
+                        className="mt-4 rounded-lg bg-leaf px-4 py-2.5 text-sm font-semibold text-white hover:bg-leaf-dark disabled:opacity-60"
+                      >
+                        {payBusy === id
+                          ? "Opening payment..."
+                          : "Pay with Mobile Money or card"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+        </div>
 
-      {showPlans && (
-        <div className="mt-6 w-full">
-          <div className="grid w-full grid-cols-1 gap-3 text-left sm:grid-cols-2">
-            {(Object.keys(PLANS) as PlanId[]).map((id) => {
-              const p = PLANS[id];
-              return (
-                <div key={id} className="rounded-lg border border-gray-200 bg-white p-4">
-                  <p className="font-semibold text-gray-900">{p.name}</p>
-                  <p className="mt-1 text-2xl font-bold text-gray-900">
-                    GH₵{cedis(p.pesewas)}
-                  </p>
-                  <p className="mt-1 text-sm text-gray-600">
-                    {p.uploads} uploads, valid for {p.days} days (whichever ends first)
-                  </p>
+        <div>
+          {sections.length > 0 ? (
+            <section className="rounded-2xl bg-white p-5 text-ink shadow-2xl sm:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="font-serif text-2xl font-bold">Your notes</h2>
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={() => buyPass(id)}
-                    disabled={payBusy !== ""}
-                    className="mt-3 w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                    onClick={copyNotes}
+                    className="rounded-lg border border-line bg-white px-3 py-1.5 text-sm font-medium hover:bg-line/40"
                   >
-                    {payBusy === id ? "Opening payment..." : "Buy with Mobile Money or card"}
+                    {copied ? "Copied" : "Copy"}
+                  </button>
+                  <button
+                    onClick={downloadNotes}
+                    className="rounded-lg border border-line bg-white px-3 py-1.5 text-sm font-medium hover:bg-line/40"
+                  >
+                    Download
+                  </button>
+                  <button
+                    onClick={clearNotes}
+                    className="px-1 text-sm text-muted underline underline-offset-2"
+                  >
+                    Clear
                   </button>
                 </div>
-              );
-            })}
-          </div>
-          <button
-            onClick={() => setShowPlans(false)}
-            className="mt-3 text-sm text-gray-500 underline"
-          >
-            Hide plans
-          </button>
-        </div>
-      )}
-
-      {sections.length > 0 && (
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <button
-            onClick={copyNotes}
-            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50"
-          >
-            {copied ? "Copied!" : "Copy notes"}
-          </button>
-          <button
-            onClick={downloadNotes}
-            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50"
-          >
-            Download
-          </button>
-          <button onClick={clearNotes} className="text-sm text-gray-500 underline">
-            Clear notes
-          </button>
-        </div>
-      )}
-
-      {sections.length > 0 && (
-        <div className="mt-6 w-full space-y-3 text-left">
-          {sections.map((s, idx) => (
-            <details
-              key={s.title + idx}
-              open={idx < 2}
-              className="rounded-lg border border-gray-200 bg-white"
-            >
-              <summary className="cursor-pointer select-none rounded-lg bg-gray-50 px-4 py-3 font-semibold text-gray-900">
-                {s.title}
-              </summary>
-              <div className="px-4 pb-4 pt-2 text-sm leading-relaxed text-gray-800">
-                {s.lines.map((line, i) => renderLine(line, s.title, i))}
               </div>
-            </details>
-          ))}
+
+              <div className="mt-4 space-y-3">
+                {sections.map((s, idx) => (
+                  <details
+                    key={s.title + idx}
+                    open={idx < 2}
+                    className="group overflow-hidden rounded-xl border border-l-4 border-line border-l-leaf bg-white"
+                  >
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 font-serif text-lg font-semibold [&::-webkit-details-marker]:hidden">
+                      {TITLES[s.title] ?? toTitle(s.title)}
+                      <svg
+                        className="h-5 w-5 shrink-0 text-muted transition-transform group-open:rotate-90"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        aria-hidden="true"
+                      >
+                        <path d="M7 4l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </summary>
+                    <div className="border-t border-line px-4 pb-5 pt-2 text-[15px] leading-7 text-ink/90">
+                      {s.lines.map((line, i) => renderLine(line, s.title, i))}
+                    </div>
+                  </details>
+                ))}
+              </div>
+            </section>
+          ) : (
+            <div className="enter enter-2">
+              <p className="mb-3 text-sm font-medium text-white/70">
+                What you get from every upload
+              </p>
+              <div className="rounded-2xl bg-white p-5 text-ink shadow-2xl sm:p-6 lg:-rotate-1">
+                <span className="inline-block rounded-full bg-gold-tint px-2.5 py-0.5 text-xs font-medium">
+                  Sample from an economics lecture
+                </span>
+
+                <h3 className="mt-4 font-serif text-xl font-semibold">Overview</h3>
+                <p className="mt-1.5 text-[15px] leading-7 text-ink/90">
+                  Every choice has a cost. This lecture shows how economists
+                  measure that cost and why it matters when resources are
+                  limited.
+                </p>
+
+                <h3 className="mt-5 font-serif text-xl font-semibold">Key terms</h3>
+                <p className="mt-1.5 text-[15px] leading-7 text-ink/90">
+                  <span className="font-semibold">Opportunity cost:</span> the
+                  value of the next best option you give up when you make a
+                  choice.
+                </p>
+
+                <h3 className="mt-5 font-serif text-xl font-semibold">
+                  Practice questions
+                </h3>
+                <p className="mt-1.5 text-[15px] leading-7 text-ink/90">
+                  1. A student spends Saturday studying instead of working a
+                  paid shift. What is the opportunity cost?
+                </p>
+                <p className="mt-1.5 rounded-r-md border-l-2 border-leaf bg-leaf-tint px-3 py-1.5 text-[15px] text-leaf-dark">
+                  <span className="font-semibold">Answer:</span> The wages they
+                  could have earned from the shift.
+                </p>
+              </div>
+              <p className="mt-3 text-sm text-white/60">
+                Your own notes appear here after you upload a PDF.
+              </p>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </main>
   );
 }
