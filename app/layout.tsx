@@ -3,7 +3,7 @@ import Backdrop from "@/components/Backdrop";
 import { PLANS, cedis } from "@/lib/plans";
 
 export const metadata = {
-  title: "Study Assistant",
+  title: "ACE Study Buddy",
   description:
     "Upload your lecture slides and get study notes and practice questions.",
 };
@@ -29,7 +29,7 @@ export default function RootLayout({
           <div className="grid gap-8 lg:grid-cols-3">
             <div>
               <h2 className="font-serif text-base font-semibold text-white">
-                About Study Assistant
+                About ACE Study Buddy
               </h2>
               <p className="mt-1">
                 Upload your lecture slides as a PDF and get study notes, key

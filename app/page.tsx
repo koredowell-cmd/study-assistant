@@ -141,11 +141,35 @@ const inputClass =
 
 function Brand() {
   return (
-    <div className="flex items-center gap-2.5">
-      <span className="grid h-8 w-8 place-items-center rounded-lg bg-gold font-serif text-lg font-black text-night">
-        S
-      </span>
-      <span className="font-serif text-lg font-bold text-white">Study Assistant</span>
+    <div className="flex items-center gap-3">
+      <svg
+        className="h-10 w-10 shrink-0"
+        viewBox="0 0 64 64"
+        role="img"
+        aria-label="ACE logo"
+      >
+        <rect width="64" height="64" rx="14" fill="#0f6b4f" />
+        <polyline
+          points="16,51 32,13 48,51"
+          fill="none"
+          stroke="#f5b700"
+          strokeWidth="6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <polyline
+          points="23,39 31,46 47,27"
+          fill="none"
+          stroke="#ffffff"
+          strokeWidth="6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+      <div className="leading-none">
+        <span className="block font-serif text-xl font-black text-white">ACE</span>
+        <span className="mt-1 block text-xs text-white/70">Study Buddy</span>
+      </div>
     </div>
   );
 }
