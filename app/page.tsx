@@ -34,7 +34,11 @@ const TITLES: Record<string, string> = {
   NOTES: "Notes",
 };
 
-type Section = { title: string; lines: string[] };
+type Section = {
+  title: string;
+  lines: string[];
+};
+
 type Pass = {
   id: string;
   plan: string;
@@ -43,18 +47,30 @@ type Pass = {
   expires_at: string;
 };
 
+type StudyMaterial = {
+  id: string;
+  title: string;
+  original_filename: string | null;
+  output: string;
+  created_at: string;
+};
+
 function toTitle(text: string) {
-  return text.toLowerCase().replace(/(^|\s)[a-z]/g, (c) => c.toUpperCase());
+  return text
+    .toLowerCase()
+    .replace(/(^|\s)[a-z]/g, (c) => c.toUpperCase());
 }
 
 function matchSection(line: string): string | null {
   const clean = line
-    .replace(/[*#:_`]/g, "")
+    .replace(/[\*#:_`]/g, "")
     .replace(/^\s*(section\s*)?\d+[.)]?\s*/i, "")
     .replace(/^[-–—•]\s*/, "")
     .trim()
     .toUpperCase();
+
   if (SECTION_NAMES.includes(clean)) return clean;
+
   return ALIASES[clean] ?? null;
 }
 
@@ -64,28 +80,51 @@ function parseSections(text: string): Section[] {
 
   for (const raw of text.split("\n")) {
     const name = matchSection(raw);
+
     if (name) {
-      current = { title: name, lines: [] };
+      current = {
+        title: name,
+        lines: [],
+      };
+
       sections.push(current);
       continue;
     }
+
     if (!current) {
-      current = { title: "NOTES", lines: [] };
+      current = {
+        title: "NOTES",
+        lines: [],
+      };
+
       sections.push(current);
     }
+
     current.lines.push(raw.replace(/\*\*/g, ""));
   }
-  return sections.filter((s) => s.lines.some((l) => l.trim() !== ""));
+
+  return sections.filter((s) =>
+    s.lines.some((l) => l.trim() !== "")
+  );
 }
 
 function isHeading(line: string) {
   const t = line.trim();
-  return t.length > 2 && t.length < 80 && t === t.toUpperCase() && /[A-Z]{3}/.test(t);
+
+  return (
+    t.length > 2 &&
+    t.length < 80 &&
+    t === t.toUpperCase() &&
+    /[A-Z]{3}/.test(t)
+  );
 }
 
 function renderLine(line: string, title: string, i: number) {
   const t = line.trim().replace(/^[-•]\s*/, "");
-  if (t === "") return <div key={i} className="h-2" />;
+
+  if (t === "") {
+    return <div key={i} className="h-2" />;
+  }
 
   if (/^part [abc]/i.test(t)) {
     return (
@@ -100,30 +139,39 @@ function renderLine(line: string, title: string, i: number) {
 
   if (isHeading(t)) {
     return (
-      <h3 key={i} className="mt-6 font-serif text-lg font-semibold text-ink">
+      <h3
+        key={i}
+        className="mt-6 font-serif text-lg font-semibold text-ink"
+      >
         {toTitle(t)}
       </h3>
     );
   }
 
   const answer = t.match(/^answer\s*:\s*(.*)$/i);
+
   if (answer) {
     return (
       <p
         key={i}
         className="mt-1.5 rounded-r-md border-l-2 border-leaf bg-leaf-tint px-3 py-1.5 text-leaf-dark"
       >
-        <span className="font-semibold">Answer:</span> {answer[1]}
+        <span className="font-semibold">Answer:</span>{" "}
+        {answer[1]}
       </p>
     );
   }
 
   if (title === "KEY TERMS") {
     const term = t.match(/^([^:]{2,60}):\s*(.+)$/);
+
     if (term) {
       return (
         <p key={i} className="mt-3">
-          <span className="font-semibold text-ink">{term[1]}:</span> {term[2]}
+          <span className="font-semibold text-ink">
+            {term[1]}:
+          </span>{" "}
+          {term[2]}
         </p>
       );
     }
@@ -148,7 +196,13 @@ function Brand() {
         role="img"
         aria-label="ACE logo"
       >
-        <rect width="64" height="64" rx="14" fill="#0f6b4f" />
+        <rect
+          width="64"
+          height="64"
+          rx="14"
+          fill="#0f6b4f"
+        />
+
         <polyline
           points="16,51 32,13 48,51"
           fill="none"
@@ -157,6 +211,7 @@ function Brand() {
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+
         <polyline
           points="23,39 31,46 47,27"
           fill="none"
@@ -166,9 +221,15 @@ function Brand() {
           strokeLinejoin="round"
         />
       </svg>
+
       <div className="leading-none">
-        <span className="block font-serif text-xl font-black text-white">ACE</span>
-        <span className="mt-1 block text-xs text-white/70">Study Buddy</span>
+        <span className="block font-serif text-xl font-black text-white">
+          ACE
+        </span>
+
+        <span className="mt-1 block text-xs text-white/70">
+          Study Buddy
+        </span>
       </div>
     </div>
   );
@@ -184,7 +245,11 @@ function Check() {
       strokeWidth="2.5"
       aria-hidden="true"
     >
-      <path d="M4 10.5l4 4 8-9" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M4 10.5l4 4 8-9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -192,6 +257,7 @@ function Check() {
 export default function Home() {
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(false);
+
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -208,25 +274,65 @@ export default function Home() {
   const [payBusy, setPayBusy] = useState("");
   const [showPlans, setShowPlans] = useState(false);
 
+  // Study Library
+  const [library, setLibrary] = useState<StudyMaterial[]>([]);
+
   const userId = session?.user.id;
   const busy = status !== "";
 
   const loadPasses = useCallback(async () => {
     const { data } = await supabase
       .from("passes")
-      .select("id, plan, uploads_total, uploads_used, expires_at")
+      .select(
+        "id, plan, uploads_total, uploads_used, expires_at"
+      )
       .gt("expires_at", new Date().toISOString())
       .order("expires_at", { ascending: true });
-    setPasses((data ?? []).filter((p) => p.uploads_used < p.uploads_total));
+
+    setPasses(
+      (data ?? []).filter(
+        (p) => p.uploads_used < p.uploads_total
+      )
+    );
   }, []);
+
+  const loadLibrary = useCallback(async () => {
+    if (!userId) {
+      setLibrary([]);
+      return;
+    }
+
+    const { data, error: libraryError } = await supabase
+      .from("study_materials")
+      .select(
+        "id, title, original_filename, output, created_at"
+      )
+      .order("created_at", { ascending: false });
+
+    if (libraryError) {
+      console.error(
+        "Study library load error:",
+        libraryError
+      );
+      return;
+    }
+
+    setLibrary(data ?? []);
+  }, [userId]);
 
   const verifyPayment = useCallback(
     async (reference: string) => {
       setNotice("Confirming your payment...");
+
       try {
-        const { data } = await supabase.auth.getSession();
+        const { data } =
+          await supabase.auth.getSession();
+
         const token = data.session?.access_token;
-        if (!token) throw new Error("Please log in to continue.");
+
+        if (!token) {
+          throw new Error("Please log in to continue.");
+        }
 
         const res = await fetch("/api/verify", {
           method: "POST",
@@ -236,15 +342,25 @@ export default function Home() {
           },
           body: JSON.stringify({ reference }),
         });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error ?? "Could not confirm the payment.");
 
-        setNotice("Payment received. Your pass is active.");
+        const json = await res.json();
+
+        if (!res.ok) {
+          throw new Error(
+            json.error ?? "Could not confirm the payment."
+          );
+        }
+
+        setNotice(
+          "Payment received. Your pass is active."
+        );
         setShowPlans(false);
         setError("");
+
         await loadPasses();
       } catch (err) {
         setNotice("");
+
         setError(
           err instanceof Error
             ? err.message
@@ -260,9 +376,14 @@ export default function Home() {
       setSession(data.session);
       setAuthReady(true);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s);
-    });
+
+    const { data: sub } =
+      supabase.auth.onAuthStateChange(
+        (_event, s) => {
+          setSession(s);
+        }
+      );
+
     return () => sub.subscription.unsubscribe();
   }, []);
 
@@ -270,67 +391,124 @@ export default function Home() {
     if (!userId) {
       setOutput("");
       setPasses([]);
+      setLibrary([]);
       setShowPlans(false);
       return;
     }
+
     try {
-      setOutput(localStorage.getItem(`${STORAGE_KEY}-${userId}`) ?? "");
+      setOutput(
+        localStorage.getItem(
+          `${STORAGE_KEY}-${userId}`
+        ) ?? ""
+      );
     } catch {}
 
     loadPasses();
+    loadLibrary();
 
-    const params = new URLSearchParams(window.location.search);
-    const reference = params.get("reference") || params.get("trxref");
+    const params = new URLSearchParams(
+      window.location.search
+    );
+
+    const reference =
+      params.get("reference") ||
+      params.get("trxref");
+
     if (reference) {
-      window.history.replaceState({}, "", window.location.pathname);
+      window.history.replaceState(
+        {},
+        "",
+        window.location.pathname
+      );
+
       verifyPayment(reference);
     }
-  }, [userId, loadPasses, verifyPayment]);
+  }, [
+    userId,
+    loadPasses,
+    loadLibrary,
+    verifyPayment,
+  ]);
 
-  async function handleAuth(e: React.FormEvent) {
+  async function handleAuth(
+    e: React.FormEvent
+  ) {
     e.preventDefault();
+
     setAuthBusy(true);
     setAuthMsg("");
+
     const { error: authError } =
       mode === "signup"
-        ? await supabase.auth.signUp({ email, password })
-        : await supabase.auth.signInWithPassword({ email, password });
-    if (authError) setAuthMsg(authError.message);
+        ? await supabase.auth.signUp({
+            email,
+            password,
+          })
+        : await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+
+    if (authError) {
+      setAuthMsg(authError.message);
+    }
+
     setAuthBusy(false);
   }
 
   async function logOut() {
     await supabase.auth.signOut();
+
     setError("");
     setNotice("");
+    setLibrary([]);
   }
 
   function clearNotes() {
     setOutput("");
+
     try {
-      if (userId) localStorage.removeItem(`${STORAGE_KEY}-${userId}`);
+      if (userId) {
+        localStorage.removeItem(
+          `${STORAGE_KEY}-${userId}`
+        );
+      }
     } catch {}
   }
 
   async function copyNotes() {
     try {
       await navigator.clipboard.writeText(output);
+
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+
+      setTimeout(() => {
+        setCopied(false);
+      }, 2000);
     } catch {
-      setError("Could not copy. Try the Download button instead.");
+      setError(
+        "Could not copy. Try the Download button instead."
+      );
     }
   }
 
   function downloadNotes() {
-    const blob = new Blob([output], { type: "text/plain;charset=utf-8" });
+    const blob = new Blob([output], {
+      type: "text/plain;charset=utf-8",
+    });
+
     const url = URL.createObjectURL(blob);
+
     const a = document.createElement("a");
+
     a.href = url;
     a.download = "study-notes.txt";
+
     document.body.appendChild(a);
     a.click();
     a.remove();
+
     URL.revokeObjectURL(url);
   }
 
@@ -338,10 +516,16 @@ export default function Home() {
     setError("");
     setNotice("");
     setPayBusy(plan);
+
     try {
-      const { data } = await supabase.auth.getSession();
+      const { data } =
+        await supabase.auth.getSession();
+
       const token = data.session?.access_token;
-      if (!token) throw new Error("Please log in to continue.");
+
+      if (!token) {
+        throw new Error("Please log in to continue.");
+      }
 
       const res = await fetch("/api/pay", {
         method: "POST",
@@ -351,19 +535,34 @@ export default function Home() {
         },
         body: JSON.stringify({ plan }),
       });
+
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Could not start the payment.");
+
+      if (!res.ok) {
+        throw new Error(
+          json.error ?? "Could not start the payment."
+        );
+      }
 
       window.location.href = json.url;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start the payment.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not start the payment."
+      );
+
       setPayBusy("");
     }
   }
 
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFile(
+    e: React.ChangeEvent<HTMLInputElement>
+  ) {
     const file = e.target.files?.[0];
+
     e.target.value = "";
+
     if (!file) return;
 
     setError("");
@@ -371,19 +570,38 @@ export default function Home() {
     setOutput("");
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (!token) throw new Error("Please log in to continue.");
+      const { data: sessionData } =
+        await supabase.auth.getSession();
+
+      const token =
+        sessionData.session?.access_token;
+
+      if (!token) {
+        throw new Error("Please log in to continue.");
+      }
 
       if (file.size > 50 * 1024 * 1024) {
-        throw new Error("File is too large. Please use a PDF under 50MB.");
+        throw new Error(
+          "File is too large. Please use a PDF under 50MB."
+        );
       }
 
       setStatus("Reading your slides...");
-      const { extractText, getDocumentProxy } = await import("unpdf");
+
+      const {
+        extractText,
+        getDocumentProxy,
+      } = await import("unpdf");
+
       const buffer = await file.arrayBuffer();
-      const pdf = await getDocumentProxy(new Uint8Array(buffer));
-      const { text } = await extractText(pdf, { mergePages: true });
+
+      const pdf = await getDocumentProxy(
+        new Uint8Array(buffer)
+      );
+
+      const { text } = await extractText(pdf, {
+        mergePages: true,
+      });
 
       if (text.trim().length < 50) {
         throw new Error(
@@ -391,40 +609,151 @@ export default function Home() {
         );
       }
 
-      setStatus("Writing your study notes and questions. This can take up to a minute...");
+      setStatus(
+        "Writing your study notes and questions. This can take up to a minute..."
+      );
+
       const res = await fetch("/api/summarize", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ text: text.slice(0, 60000) }),
+        body: JSON.stringify({
+          text: text.slice(0, 60000),
+          fileName: file.name,
+        }),
       });
+
       const data = await res.json();
-      if (res.status === 429) setShowPlans(true);
-      if (!res.ok) throw new Error(data.error ?? "Something went wrong.");
+
+      if (res.status === 429) {
+        setShowPlans(true);
+      }
+
+      if (!res.ok) {
+        throw new Error(
+          data.error ?? "Something went wrong."
+        );
+      }
 
       setOutput(data.output);
+
+      // Refresh the Study Library because the new
+      // material has now been saved.
+      await loadLibrary();
+
+      if (data.librarySaved === false) {
+        setNotice(
+          "Your study notes were generated, but they could not be saved to your Study Library."
+        );
+      }
+
       try {
-        localStorage.setItem(`${STORAGE_KEY}-${sessionData.session?.user.id}`, data.output);
+        localStorage.setItem(
+          `${STORAGE_KEY}-${sessionData.session?.user.id}`,
+          data.output
+        );
       } catch {}
-      loadPasses();
+
+      await loadPasses();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Something went wrong."
+      );
     }
+
     setStatus("");
   }
 
-  const sections = output ? parseSections(output) : [];
-  const uploadsLeft = passes.reduce((n, p) => n + (p.uploads_total - p.uploads_used), 0);
+  async function openMaterial(
+    material: StudyMaterial
+  ) {
+    setError("");
+    setNotice("");
+
+    setOutput(material.output);
+
+    try {
+      if (userId) {
+        localStorage.setItem(
+          `${STORAGE_KEY}-${userId}`,
+          material.output
+        );
+      }
+    } catch {}
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }
+
+  async function deleteMaterial(id: string) {
+    const confirmed = window.confirm(
+      "Delete this study material from your library?"
+    );
+
+    if (!confirmed) return;
+
+    setError("");
+
+    const { error: deleteError } =
+      await supabase
+        .from("study_materials")
+        .delete()
+        .eq("id", id);
+
+    if (deleteError) {
+      console.error(
+        "Study library delete error:",
+        deleteError
+      );
+
+      setError(
+        "Could not delete this study material."
+      );
+
+      return;
+    }
+
+    setLibrary((current) =>
+      current.filter(
+        (material) => material.id !== id
+      )
+    );
+
+    setNotice("Study material deleted.");
+  }
+
+  const sections = output
+    ? parseSections(output)
+    : [];
+
+  const uploadsLeft = passes.reduce(
+    (n, p) =>
+      n + (p.uploads_total - p.uploads_used),
+    0
+  );
+
   const lastExpiry = passes.length
-    ? new Date(Math.max(...passes.map((p) => new Date(p.expires_at).getTime())))
+    ? new Date(
+        Math.max(
+          ...passes.map((p) =>
+            new Date(p.expires_at).getTime()
+          )
+        )
+      )
     : null;
 
   if (!authReady) {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <p className="text-white/70">Loading...</p>
+        <p className="text-white/70">
+          Loading...
+        </p>
       </main>
     );
   }
@@ -434,12 +763,15 @@ export default function Home() {
       <main className="mx-auto grid min-h-screen w-full max-w-6xl items-center gap-12 px-5 py-12 sm:px-8 lg:grid-cols-2 lg:gap-16">
         <div className="enter">
           <Brand />
+
           <h1 className="mt-8 font-serif text-4xl font-bold leading-[1.1] text-white sm:text-6xl">
             Turn your slides into exam prep
           </h1>
+
           <p className="mt-4 max-w-lg text-lg leading-8 text-white/75">
-            Upload a lecture PDF and get study notes, key terms, and practice
-            questions with answers.
+            Upload a lecture PDF and get study
+            notes, key terms, and practice questions
+            with answers.
           </p>
 
           <ul className="mt-6 space-y-2.5 text-white/90">
@@ -447,25 +779,33 @@ export default function Home() {
               <Check />
               Notes on every topic in your slides
             </li>
+
             <li className="flex gap-3">
               <Check />
-              Practice questions with the answers included
+              Practice questions with the answers
+              included
             </li>
+
             <li className="flex gap-3">
               <Check />
-              Pay with Mobile Money, only when you need more
+              Pay with Mobile Money, only when you
+              need more
             </li>
           </ul>
 
           <ul className="mt-6 flex flex-wrap gap-2 text-sm">
             <li className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-white/90">
-              Free: 2 uploads a day
+              Free: 2 uploads total
             </li>
+
             <li className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-white/90">
-              {PLANS.week.name} GH₵{cedis(PLANS.week.pesewas)}
+              {PLANS.week.name} GH₵
+              {cedis(PLANS.week.pesewas)}
             </li>
+
             <li className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-white/90">
-              {PLANS.month.name} GH₵{cedis(PLANS.month.pesewas)}
+              {PLANS.month.name} GH₵
+              {cedis(PLANS.month.pesewas)}
             </li>
           </ul>
         </div>
@@ -476,13 +816,19 @@ export default function Home() {
             className="space-y-4 rounded-2xl bg-white p-6 text-ink shadow-2xl"
           >
             <h2 className="font-serif text-2xl font-semibold">
-              {mode === "signup" ? "Create your account" : "Log in"}
+              {mode === "signup"
+                ? "Create your account"
+                : "Log in"}
             </h2>
 
             <div>
-              <label htmlFor="email" className="mb-1 block text-sm font-medium">
+              <label
+                htmlFor="email"
+                className="mb-1 block text-sm font-medium"
+              >
                 Email
               </label>
+
               <input
                 id="email"
                 type="email"
@@ -490,24 +836,36 @@ export default function Home() {
                 autoComplete="email"
                 placeholder="you@example.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) =>
+                  setEmail(e.target.value)
+                }
                 className={inputClass}
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="mb-1 block text-sm font-medium">
+              <label
+                htmlFor="password"
+                className="mb-1 block text-sm font-medium"
+              >
                 Password
               </label>
+
               <input
                 id="password"
                 type="password"
                 required
                 minLength={6}
-                autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                autoComplete={
+                  mode === "signup"
+                    ? "new-password"
+                    : "current-password"
+                }
                 placeholder="At least 6 characters"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) =>
+                  setPassword(e.target.value)
+                }
                 className={inputClass}
               />
             </div>
@@ -523,13 +881,21 @@ export default function Home() {
               disabled={authBusy}
               className="w-full rounded-lg bg-leaf px-4 py-3 font-semibold text-white hover:bg-leaf-dark disabled:opacity-60"
             >
-              {authBusy ? "Please wait..." : mode === "signup" ? "Create account" : "Log in"}
+              {authBusy
+                ? "Please wait..."
+                : mode === "signup"
+                  ? "Create account"
+                  : "Log in"}
             </button>
 
             <button
               type="button"
               onClick={() => {
-                setMode(mode === "login" ? "signup" : "login");
+                setMode(
+                  mode === "login"
+                    ? "signup"
+                    : "login"
+                );
                 setAuthMsg("");
               }}
               className="text-sm font-medium text-leaf underline underline-offset-2"
@@ -548,8 +914,12 @@ export default function Home() {
     <main className="mx-auto w-full max-w-6xl px-5 pb-16 pt-6 sm:px-8">
       <header className="flex items-center justify-between gap-4">
         <Brand />
+
         <div className="flex min-w-0 items-center gap-2 text-sm text-white/70">
-          <span className="truncate">{session.user.email}</span>
+          <span className="truncate">
+            {session.user.email}
+          </span>
+
           <button
             onClick={logOut}
             className="shrink-0 rounded-md px-2 py-1 font-medium text-white hover:bg-white/10"
@@ -565,26 +935,34 @@ export default function Home() {
             <h1 className="font-serif text-4xl font-bold leading-[1.1] text-white sm:text-5xl">
               Turn your slides into exam prep
             </h1>
+
             <p className="mt-3 max-w-md leading-7 text-white/75">
-              Upload a lecture PDF and get study notes, key terms, and practice
-              questions with answers.
+              Upload a lecture PDF and get study
+              notes, key terms, and practice questions
+              with answers.
             </p>
           </div>
 
           <label
             className={`ruled enter enter-2 mt-6 block cursor-pointer rounded-2xl py-7 pl-16 pr-6 text-ink shadow-2xl focus-within:ring-2 focus-within:ring-gold ${
-              busy ? "pointer-events-none opacity-70" : ""
+              busy
+                ? "pointer-events-none opacity-70"
+                : ""
             }`}
           >
             <span className="block font-serif text-xl font-semibold">
               Choose a lecture PDF
             </span>
+
             <span className="mt-1 block text-sm leading-6 text-muted">
-              Slides or notes saved as a PDF. Scanned pages cannot be read.
+              Slides or notes saved as a PDF. Scanned
+              pages cannot be read.
             </span>
+
             <span className="glow mt-4 inline-block rounded-lg bg-leaf px-5 py-2.5 text-sm font-semibold text-white">
               Select PDF
             </span>
+
             <input
               type="file"
               accept="application/pdf"
@@ -595,19 +973,34 @@ export default function Home() {
           </label>
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm">
-            {passes.length > 0 && lastExpiry ? (
+            {passes.length > 0 &&
+            lastExpiry ? (
               <span className="rounded-full bg-gold-tint px-3 py-1 font-medium text-ink">
-                Pass active: {uploadsLeft} uploads left, until{" "}
-                {lastExpiry.toLocaleDateString(undefined, { day: "numeric", month: "short" })}
+                Pass active: {uploadsLeft} uploads
+                left, until{" "}
+                {lastExpiry.toLocaleDateString(
+                  undefined,
+                  {
+                    day: "numeric",
+                    month: "short",
+                  }
+                )}
               </span>
             ) : (
-              <span className="text-white/70">Free plan: 2 uploads a day</span>
+              <span className="text-white/70">
+                Free plan: 2 uploads total
+              </span>
             )}
+
             <button
-              onClick={() => setShowPlans((v) => !v)}
+              onClick={() =>
+                setShowPlans((v) => !v)
+              }
               className="font-medium text-gold underline underline-offset-2"
             >
-              {showPlans ? "Hide plans" : "Need more uploads?"}
+              {showPlans
+                ? "Hide plans"
+                : "Need more uploads?"}
             </button>
           </div>
 
@@ -620,11 +1013,13 @@ export default function Home() {
               {status}
             </div>
           )}
+
           {notice && (
             <p className="mt-4 rounded-lg border border-leaf/30 bg-leaf-tint px-4 py-3 text-sm text-leaf-dark">
               {notice}
             </p>
           )}
+
           {error && (
             <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
               {error}
@@ -636,44 +1031,149 @@ export default function Home() {
               <h2 className="font-serif text-xl font-semibold text-white">
                 Get more uploads
               </h2>
+
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                {(Object.keys(PLANS) as PlanId[]).map((id) => {
-                  const p = PLANS[id];
-                  return (
-                    <div
-                      key={id}
-                      className="flex flex-col rounded-2xl bg-white p-5 text-ink shadow-xl"
-                    >
-                      <p className="text-sm font-medium text-muted">{p.name}</p>
-                      <p className="mt-1 font-serif text-3xl font-bold">
-                        GH₵{cedis(p.pesewas)}
-                      </p>
-                      <p className="mt-2 flex-1 text-sm leading-6 text-muted">
-                        {p.uploads} uploads over {p.days} days. It ends when
-                        either one runs out.
-                      </p>
-                      <button
-                        onClick={() => buyPass(id)}
-                        disabled={payBusy !== ""}
-                        className="mt-4 rounded-lg bg-leaf px-4 py-2.5 text-sm font-semibold text-white hover:bg-leaf-dark disabled:opacity-60"
+                {(Object.keys(PLANS) as PlanId[]).map(
+                  (id) => {
+                    const p = PLANS[id];
+
+                    return (
+                      <div
+                        key={id}
+                        className="flex flex-col rounded-2xl bg-white p-5 text-ink shadow-xl"
                       >
-                        {payBusy === id
-                          ? "Opening payment..."
-                          : "Pay with Mobile Money or card"}
-                      </button>
-                    </div>
-                  );
-                })}
+                        <p className="text-sm font-medium text-muted">
+                          {p.name}
+                        </p>
+
+                        <p className="mt-1 font-serif text-3xl font-bold">
+                          GH₵{cedis(p.pesewas)}
+                        </p>
+
+                        <p className="mt-2 flex-1 text-sm leading-6 text-muted">
+                          {p.uploads} uploads over{" "}
+                          {p.days} days. It ends when
+                          either one runs out.
+                        </p>
+
+                        <button
+                          onClick={() =>
+                            buyPass(id)
+                          }
+                          disabled={payBusy !== ""}
+                          className="mt-4 rounded-lg bg-leaf px-4 py-2.5 text-sm font-semibold text-white hover:bg-leaf-dark disabled:opacity-60"
+                        >
+                          {payBusy === id
+                            ? "Opening payment..."
+                            : "Pay with Mobile Money or card"}
+                        </button>
+                      </div>
+                    );
+                  }
+                )}
               </div>
             </section>
           )}
         </div>
 
         <div>
+          {/* ============================
+              STUDY LIBRARY
+              ============================ */}
+
+          {library.length > 0 && (
+            <section className="mb-6 rounded-2xl bg-white p-5 text-ink shadow-2xl sm:p-6">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-serif text-2xl font-bold">
+                    My Study Library
+                  </h2>
+
+                  <p className="mt-1 text-sm text-muted">
+                    Your previous study materials are
+                    saved here.
+                  </p>
+                </div>
+
+                <span className="rounded-full bg-gold-tint px-3 py-1 text-xs font-semibold">
+                  {library.length}{" "}
+                  {library.length === 1
+                    ? "material"
+                    : "materials"}
+                </span>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {library.map((material) => (
+                  <div
+                    key={material.id}
+                    className="flex flex-col gap-3 rounded-xl border border-line p-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <button
+                      onClick={() =>
+                        openMaterial(material)
+                      }
+                      className="min-w-0 text-left"
+                    >
+                      <p className="truncate font-semibold hover:text-leaf">
+                        {material.title}
+                      </p>
+
+                      <p className="mt-1 text-xs text-muted">
+                        {material.original_filename ||
+                          "PDF"}{" "}
+                        ·{" "}
+                        {new Date(
+                          material.created_at
+                        ).toLocaleDateString(
+                          undefined,
+                          {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          }
+                        )}
+                      </p>
+                    </button>
+
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        onClick={() =>
+                          openMaterial(material)
+                        }
+                        className="rounded-lg bg-leaf px-3 py-1.5 text-sm font-semibold text-white hover:bg-leaf-dark"
+                      >
+                        Open
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          deleteMaterial(
+                            material.id
+                          )
+                        }
+                        className="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ============================
+              CURRENT NOTES
+              ============================ */}
+
           {sections.length > 0 ? (
             <section className="rounded-2xl bg-white p-5 text-ink shadow-2xl sm:p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="font-serif text-2xl font-bold">Your notes</h2>
+                <h2 className="font-serif text-2xl font-bold">
+                  Your notes
+                </h2>
+
                 <div className="flex items-center gap-2">
                   <button
                     onClick={copyNotes}
@@ -681,12 +1181,14 @@ export default function Home() {
                   >
                     {copied ? "Copied" : "Copy"}
                   </button>
+
                   <button
                     onClick={downloadNotes}
                     className="rounded-lg border border-line bg-white px-3 py-1.5 text-sm font-medium hover:bg-line/40"
                   >
                     Download
                   </button>
+
                   <button
                     onClick={clearNotes}
                     className="px-1 text-sm text-muted underline underline-offset-2"
@@ -704,7 +1206,9 @@ export default function Home() {
                     className="group overflow-hidden rounded-xl border border-l-4 border-line border-l-leaf bg-white"
                   >
                     <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 font-serif text-lg font-semibold [&::-webkit-details-marker]:hidden">
-                      {TITLES[s.title] ?? toTitle(s.title)}
+                      {TITLES[s.title] ??
+                        toTitle(s.title)}
+
                       <svg
                         className="h-5 w-5 shrink-0 text-muted transition-transform group-open:rotate-90"
                         viewBox="0 0 20 20"
@@ -713,11 +1217,22 @@ export default function Home() {
                         strokeWidth="2"
                         aria-hidden="true"
                       >
-                        <path d="M7 4l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+                        <path
+                          d="M7 4l6 6-6 6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
                       </svg>
                     </summary>
+
                     <div className="border-t border-line px-4 pb-5 pt-2 text-[15px] leading-7 text-ink/90">
-                      {s.lines.map((line, i) => renderLine(line, s.title, i))}
+                      {s.lines.map((line, i) =>
+                        renderLine(
+                          line,
+                          s.title,
+                          i
+                        )
+                      )}
                     </div>
                   </details>
                 ))}
@@ -728,39 +1243,57 @@ export default function Home() {
               <p className="mb-3 text-sm font-medium text-white/70">
                 What you get from every upload
               </p>
+
               <div className="rounded-2xl bg-white p-5 text-ink shadow-2xl sm:p-6 lg:-rotate-1">
                 <span className="inline-block rounded-full bg-gold-tint px-2.5 py-0.5 text-xs font-medium">
                   Sample from an economics lecture
                 </span>
 
-                <h3 className="mt-4 font-serif text-xl font-semibold">Overview</h3>
+                <h3 className="mt-4 font-serif text-xl font-semibold">
+                  Overview
+                </h3>
+
                 <p className="mt-1.5 text-[15px] leading-7 text-ink/90">
-                  Every choice has a cost. This lecture shows how economists
-                  measure that cost and why it matters when resources are
+                  Every choice has a cost. This lecture
+                  shows how economists measure that cost
+                  and why it matters when resources are
                   limited.
                 </p>
 
-                <h3 className="mt-5 font-serif text-xl font-semibold">Key terms</h3>
+                <h3 className="mt-5 font-serif text-xl font-semibold">
+                  Key terms
+                </h3>
+
                 <p className="mt-1.5 text-[15px] leading-7 text-ink/90">
-                  <span className="font-semibold">Opportunity cost:</span> the
-                  value of the next best option you give up when you make a
-                  choice.
+                  <span className="font-semibold">
+                    Opportunity cost:
+                  </span>{" "}
+                  the value of the next best option you
+                  give up when you make a choice.
                 </p>
 
                 <h3 className="mt-5 font-serif text-xl font-semibold">
                   Practice questions
                 </h3>
+
                 <p className="mt-1.5 text-[15px] leading-7 text-ink/90">
-                  1. A student spends Saturday studying instead of working a
-                  paid shift. What is the opportunity cost?
+                  1. A student spends Saturday studying
+                  instead of working a paid shift. What
+                  is the opportunity cost?
                 </p>
+
                 <p className="mt-1.5 rounded-r-md border-l-2 border-leaf bg-leaf-tint px-3 py-1.5 text-[15px] text-leaf-dark">
-                  <span className="font-semibold">Answer:</span> The wages they
-                  could have earned from the shift.
+                  <span className="font-semibold">
+                    Answer:
+                  </span>{" "}
+                  The wages they could have earned from
+                  the shift.
                 </p>
               </div>
+
               <p className="mt-3 text-sm text-white/60">
-                Your own notes appear here after you upload a PDF.
+                Your own notes appear here after you
+                upload a PDF.
               </p>
             </div>
           )}
